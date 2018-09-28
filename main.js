@@ -1,6 +1,5 @@
 let helpers = require('./helpers')
 let request = require('request')
-let sqlite3 = require('sqlite3')
 
 const options = {
 	uri: 'https://m.10010.com/NumApp/NumberCenter/qryNum',
@@ -11,10 +10,10 @@ const options = {
 	},
 	qs: {
 		'callback': 'jsonp_queryMoreNums',
-		'provinceCode': 36,
-		'cityCode': 360,
+		'provinceCode': 11,
+		'cityCode': 110,
 		'monthFeeLimit': 0,
-		'groupKey': 60236866,
+		'groupKey': 85236889,
 		'searchCategory': 3,
 		'net': '01',
 		'amounts': 200,
@@ -38,14 +37,8 @@ const categoryExp = {
 
 // Initialize database
 var numbers = []
-let db = new sqlite3.Database('./numbers.sqlite')
-db.run('DROP TABLE IF EXISTS `ALL`')
-db.run('CREATE TABLE IF NOT EXISTS `ALL` (VALUE INTEGER)')
-Object.keys(categoryExp).forEach(type => {
-	db.run(`DROP TABLE IF EXISTS ${type}`)
-	db.run(`CREATE TABLE IF NOT EXISTS ${type} (VALUE INTEGER)`)
-})
-
+var fs=require('fs');
+    
 function callback(error, response, body) {
 	if (!error && response.statusCode === 200) {
 		// Numbers incoming, get rid of duplicate numbers
@@ -53,11 +46,9 @@ function callback(error, response, body) {
 		numbers = [...numbers, ...newNums]
 		console.info(new Date(), `Retrieved ${newNums.length} numbers, total => ${numbers.length}`)
 		// Save numbers to database for browsing
-		save('ALL', newNums)
-		// Save matched numbers to database
-		Object.keys(categoryExp).forEach(type => {
-			save(type, newNums.filter(num => categoryExp[type].test(num)))
-		})
+		var fd=fs.openSync('gzl.txt','a');
+		fs.writeSync(fd,newNums);
+		fs.closeSync(fd);
 	} else {
 		console.error(error, response.statusCode)
 	}
@@ -72,18 +63,8 @@ function jsonp_queryMoreNums(data) {
 	return numArray;
 }
 
-function save(table, numArray) {
-	if (!numArray || numArray.length <= 0) return;
-	db.serialize(function() {
-		db.run('BEGIN TRANSACTION')
-		for (var i = 0; i < numArray.length; i++) {
-			db.run(`INSERT INTO \'${table}\' VALUES (?)`, numArray[i])
-		}
-		db.run('COMMIT')
-	})
-}
-
 // Get data periodicly
 helpers.instantInterval(() => {
 	request.get(options, callback)
 }, 1 * 1000)
+
